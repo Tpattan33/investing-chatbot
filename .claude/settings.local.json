@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip list *)",
+      "Bash(findstr /I \"fastapi uvicorn langchain openai chroma dotenv\")",
+      "Bash(findstr /I /C:\"fastapi\" /C:\"uvicorn\" /C:\"langchain\" /C:\"openai\" /C:\"chroma\" /C:\"dotenv\")"
+    ]
+  }
+}

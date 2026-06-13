@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Investing Chatbot</title>
+  <style>
+    :root {
+      --text: #e8ecff;
+      --muted: #8b93c4;
+      --border: rgba(255, 255, 255, 0.12);
+      --glass: rgba(255, 255, 255, 0.06);
+      --user-grad: linear-gradient(135deg, #4f6cf7 0%, #7c5cff 100%);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+      /* Deep night-sky gradient: midnight blue fading to black. */
+      background:
+        radial-gradient(1200px 700px at 80% -5%, #2a2a6e 0%, transparent 55%),
+        radial-gradient(900px 600px at 10% 10%, #1b2a5e 0%, transparent 50%),
+        linear-gradient(180deg, #0a0e27 0%, #060818 60%, #03040e 100%);
+    }
+
+    /* ---- Starfield layers ---- */
+    .sky {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    /* Three layers of stars built from radial-gradient "dots". */
+    .stars {
+      position: absolute;
+      inset: -50%;
+      background-repeat: repeat;
+    }
+    .stars.small {
+      background-image:
+        radial-gradient(1px 1px at 20px 30px, #fff, transparent),
+        radial-gradient(1px 1px at 140px 80px, #cfe0ff, transparent),
+        radial-gradient(1px 1px at 90px 160px, #fff, transparent),
+        radial-gradient(1px 1px at 200px 120px, #e6ecff, transparent),
+        radial-gradient(1px 1px at 260px 220px, #fff, transparent);
+      background-size: 300px 300px;
+      animation: drift 240s linear infinite, twinkle 4s ease-in-out infinite;
+      opacity: 0.7;
+    }
+    .stars.medium {
+      background-image:
+        radial-gradient(1.6px 1.6px at 60px 50px, #fff, transparent),
+        radial-gradient(1.6px 1.6px at 180px 140px, #bcd0ff, transparent),
+        radial-gradient(1.6px 1.6px at 320px 90px, #fff, transparent),
+        radial-gradient(1.6px 1.6px at 250px 260px, #fff, transparent);
+      background-size: 400px 400px;
+      animation: drift 180s linear infinite reverse, twinkle 6s ease-in-out infinite;
+      opacity: 0.8;
+    }
+    .stars.big {
+      background-image:
+        radial-gradient(2.2px 2.2px at 120px 120px, #fff, transparent),
+        radial-gradient(2.2px 2.2px at 400px 200px, #d9e6ff, transparent),
+        radial-gradient(2.2px 2.2px at 300px 380px, #fff, transparent);
+      background-size: 550px 550px;
+      animation: drift 320s linear infinite, twinkle 5s ease-in-out infinite;
+    }
+    /* The moon, glowing in the corner. */
+    .moon {
+      position: absolute;
+      top: 7%;
+      right: 9%;
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #fdfcf5 0%, #e8e6d4 55%, #cfcdb8 100%);
+      box-shadow:
+        0 0 40px 10px rgba(245, 244, 220, 0.25),
+        0 0 90px 30px rgba(180, 190, 255, 0.15),
+        inset -10px -10px 0 rgba(0, 0, 0, 0.06);
+    }
+    .moon::before, .moon::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.05);
+    }
+    .moon::before { width: 14px; height: 14px; top: 18px; left: 16px; }
+    .moon::after  { width: 9px;  height: 9px;  top: 40px; left: 38px; }
+
+    /* A couple of slow shooting stars. */
+    .shoot {
+      position: absolute;
+      width: 120px;
+      height: 1.5px;
+      background: linear-gradient(90deg, #fff, transparent);
+      opacity: 0;
+      border-radius: 99px;
+      filter: drop-shadow(0 0 6px #fff);
+      animation: shoot 9s ease-in infinite;
+    }
+    .shoot.a { top: 18%; left: 60%; animation-delay: 3s; }
+    .shoot.b { top: 38%; left: 30%; animation-delay: 8s; transform: rotate(15deg); }
+
+    /* App shell sits above the sky. */
+    .app {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 0 16px;
+    }
+
+    /* Header */
+    header {
+      padding: 24px 4px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      background: linear-gradient(135deg, #4f6cf7, #7c5cff);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      flex-shrink: 0;
+      box-shadow: 0 0 22px rgba(124, 92, 255, 0.55);
+    }
+    header h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #fff;
+    }
+    header p { font-size: 0.8rem; color: var(--muted); }
+
+    /* Scrolling message history */
+    #history {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 4px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    #history::-webkit-scrollbar { width: 8px; }
+    #history::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 99px;
+    }
+
+    /* Empty state */
+    .empty {
+      margin: auto;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.7;
+    }
+    .empty strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 0 18px rgba(124, 92, 255, 0.6);
+    }
+
+    /* Chat bubbles */
+    .msg {
+      max-width: 78%;
+      padding: 12px 16px;
+      border-radius: var(--radius);
+      font-size: 0.925rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      animation: rise 0.18s ease-out;
+    }
+    .user {
+      align-self: flex-end;
+      background: var(--user-grad);
+      color: #fff;
+      border-bottom-right-radius: 5px;
+      box-shadow: 0 8px 24px rgba(79, 108, 247, 0.4);
+    }
+    .bot {
+      align-self: flex-start;
+      background: var(--glass);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 5px;
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* Typing dots */
+    .typing { display: inline-flex; gap: 4px; padding: 4px 2px; }
+    .typing span {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #a9b4ff;
+      opacity: 0.5;
+      box-shadow: 0 0 8px rgba(124, 92, 255, 0.8);
+      animation: blink 1.2s infinite ease-in-out;
+    }
+    .typing span:nth-child(2) { animation-delay: 0.2s; }
+    .typing span:nth-child(3) { animation-delay: 0.4s; }
+
+    /* Composer */
+    .composer { padding: 12px 0 20px; }
+    #form {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 8px 8px 8px 16px;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    #form:focus-within {
+      border-color: rgba(124, 92, 255, 0.7);
+      box-shadow: 0 0 0 4px rgba(124, 92, 255, 0.18);
+    }
+    #input {
+      flex: 1;
+      border: none;
+      outline: none;
+      resize: none;
+      font: inherit;
+      font-size: 0.95rem;
+      background: transparent;
+      color: var(--text);
+      max-height: 140px;
+      line-height: 1.5;
+      padding: 6px 0;
+    }
+    #input::placeholder { color: var(--muted); }
+    #send {
+      flex-shrink: 0;
+      width: 38px;
+      height: 38px;
+      border: none;
+      border-radius: 12px;
+      background: var(--user-grad);
+      color: #fff;
+      cursor: pointer;
+      display: grid;
+      place-items: center;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+      box-shadow: 0 0 18px rgba(124, 92, 255, 0.5);
+    }
+    #send:hover:not(:disabled) { box-shadow: 0 0 26px rgba(124, 92, 255, 0.8); }
+    #send:active:not(:disabled) { transform: scale(0.94); }
+    #send:disabled { opacity: 0.4; cursor: not-allowed; }
+    #send svg { width: 18px; height: 18px; }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes blink {
+      0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+      30% { transform: translateY(-4px); opacity: 1; }
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+    @keyframes drift {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-300px); }
+    }
+    @keyframes shoot {
+      0%   { opacity: 0; transform: translate(0, 0); }
+      2%   { opacity: 1; }
+      12%  { opacity: 1; transform: translate(-320px, 160px); }
+      13%, 100% { opacity: 0; transform: translate(-320px, 160px); }
+    }
+  </style>
+</head>
+<body>
+  <!-- Night sky background -->
+  <div class="sky">
+    <div class="stars small"></div>
+    <div class="stars medium"></div>
+    <div class="stars big"></div>
+    <div class="moon"></div>
+    <div class="shoot a"></div>
+    <div class="shoot b"></div>
+  </div>
+
+  <div class="app">
+    <header>
+      <div class="logo">🌙</div>
+      <div>
+        <h1>Investing Chatbot</h1>
+        <p>Ask anything from The Investing Handbook</p>
+      </div>
+    </header>
+
+    <!-- Message history -->
+    <div id="history">
+      <div class="empty" id="empty">
+        <strong>Reach for the stars ✨</strong>
+        Try: "What is dollar-cost averaging?"
+      </div>
+    </div>
+
+    <!-- Composer -->
+    <div class="composer">
+      <form id="form">
+        <textarea id="input" rows="1" placeholder="Ask a question..." autocomplete="off"></textarea>
+        <button id="send" type="submit" aria-label="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="19" x2="12" y2="5"></line>
+            <polyline points="5 12 12 5 19 12"></polyline>
+          </svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const historyEl = document.getElementById("history");
+    const emptyEl = document.getElementById("empty");
+    const formEl = document.getElementById("form");
+    const inputEl = document.getElementById("input");
+    const sendEl = document.getElementById("send");
+
+    // Auto-grow the textarea as the user types.
+    inputEl.addEventListener("input", () => {
+      inputEl.style.height = "auto";
+      inputEl.style.height = inputEl.scrollHeight + "px";
+    });
+
+    // Enter sends, Shift+Enter makes a new line.
+    inputEl.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        formEl.requestSubmit();
+      }
+    });
+
+    // Add a bubble to the history. `isHTML` lets us inject the typing dots.
+    function addMessage(content, cssClass, isHTML = false) {
+      if (emptyEl) emptyEl.remove();
+      const div = document.createElement("div");
+      div.className = "msg " + cssClass;
+      if (isHTML) div.innerHTML = content;
+      else div.textContent = content;
+      historyEl.appendChild(div);
+      historyEl.scrollTop = historyEl.scrollHeight;
+      return div;
+    }
+
+    formEl.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const message = inputEl.value.trim();
+      if (!message) return;
+
+      // Show user message, reset the input.
+      addMessage(message, "user");
+      inputEl.value = "";
+      inputEl.style.height = "auto";
+
+      // Loading state: animated typing dots.
+      sendEl.disabled = true;
+      const loadingBubble = addMessage(
+        '<div class="typing"><span></span><span></span><span></span></div>',
+        "bot",
+        true
+      );
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message: message }),
+        });
+
+        if (!res.ok) throw new Error("Server error: " + res.status);
+
+        const data = await res.json();   // { response: "answer here" }
+        loadingBubble.textContent = data.response;
+      } catch (err) {
+        loadingBubble.textContent = "⚠️ Something went wrong: " + err.message;
+      } finally {
+        sendEl.disabled = false;
+        historyEl.scrollTop = historyEl.scrollHeight;
+        inputEl.focus();
+      }
+    });
+  </script>
+</body>
+</html>
